@@ -29,13 +29,9 @@ interface EmailEntry {
 
 function ProviderBadge({ provider }: { provider: string }) {
   return (
-    <span
-      className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${
-        provider === "gmail"
-          ? "bg-red-100 text-red-600"
-          : "bg-blue-100 text-blue-600"
-      }`}
-    >
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${
+      provider === "gmail" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
+    }`}>
       {provider}
     </span>
   );
@@ -45,22 +41,16 @@ function StatusDot({ lastActive, isActive }: { lastActive: string | null; isActi
   if (!isActive)
     return <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block" title="Paused" />;
   return (
-    <span
-      className={`w-1.5 h-1.5 rounded-full inline-block ${
-        lastActive ? "bg-emerald-500" : "bg-gray-300"
-      }`}
-    />
+    <span className={`w-1.5 h-1.5 rounded-full inline-block ${lastActive ? "bg-emerald-500" : "bg-gray-300"}`} />
   );
 }
 
 function FolderBadge({ folder }: { folder: string }) {
   const isSpam = folder?.toLowerCase().includes("spam") || folder?.toLowerCase().includes("junk");
   return (
-    <span
-      className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-        isSpam ? "bg-orange-50 text-orange-500" : "bg-purple-50 text-purple-500"
-      }`}
-    >
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+      isSpam ? "bg-orange-50 text-orange-500" : "bg-purple-50 text-purple-500"
+    }`}>
       {folder || "inbox"}
     </span>
   );
@@ -176,14 +166,7 @@ function AddAccountModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
 // ── SIDEBAR ────────────────────────────────────────────────────────────────
 
 function Sidebar({
-  accounts,
-  selectedAccount,
-  onSelect,
-  onToggle,
-  onDelete,
-  togglingId,
-  onAddClick,
-  lastUpdate,
+  accounts, selectedAccount, onSelect, onToggle, onDelete, togglingId, onAddClick, lastUpdate,
 }: {
   accounts: Account[];
   selectedAccount: number | null;
@@ -195,16 +178,11 @@ function Sidebar({
   lastUpdate: string | null;
 }) {
   const [search, setSearch] = useState("");
-
-  const filtered = accounts.filter((a) =>
-    a.email.toLowerCase().includes(search.toLowerCase())
-  );
-
+  const filtered    = accounts.filter((a) => a.email.toLowerCase().includes(search.toLowerCase()));
   const activeCount = accounts.filter((a) => a.is_active).length;
 
   return (
     <aside className="w-72 shrink-0 bg-white border-r border-gray-100 flex flex-col h-screen sticky top-0">
-
       {/* Header */}
       <div className="px-4 pt-5 pb-3 border-b border-gray-100">
         <div className="flex items-center justify-between mb-1">
@@ -217,9 +195,7 @@ function Sidebar({
             +
           </button>
         </div>
-        <p className="text-[11px] text-gray-400">
-          {activeCount} active · updated {lastUpdate ?? "—"}
-        </p>
+        <p className="text-[11px] text-gray-400">{activeCount} active · updated {lastUpdate ?? "—"}</p>
       </div>
 
       {/* Stats */}
@@ -263,20 +239,16 @@ function Sidebar({
                 key={acc.id}
                 onClick={() => onSelect(acc.id)}
                 className={`group px-4 py-3 cursor-pointer border-b border-gray-50 transition-colors ${
-                  selectedAccount === acc.id
-                    ? "bg-gray-900"
-                    : "hover:bg-gray-50"
+                  selectedAccount === acc.id ? "bg-gray-900" : "hover:bg-gray-50"
                 } ${!acc.is_active ? "opacity-50" : ""}`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <ProviderBadge provider={acc.provider} />
                   <div className="flex items-center gap-1.5">
                     <StatusDot lastActive={acc.last_active} isActive={acc.is_active} />
-                    <span className={`text-[10px] ${selectedAccount === acc.id ? "text-gray-400" : "text-gray-400"}`}>
+                    <span className="text-[10px] text-gray-400">
                       {!acc.is_active ? "paused" : acc.last_active ? "active" : "waiting"}
                     </span>
-
-                    {/* Pause / Resume */}
                     <button
                       onClick={(ev) => { ev.stopPropagation(); onToggle(acc.id, acc.is_active); }}
                       disabled={togglingId === acc.id}
@@ -287,8 +259,6 @@ function Sidebar({
                     >
                       {acc.is_active ? "⏸" : "▶"}
                     </button>
-
-                    {/* Delete */}
                     <button
                       onClick={(ev) => { ev.stopPropagation(); onDelete(acc.id, acc.email); }}
                       className={`opacity-0 group-hover:opacity-100 text-[11px] transition-all ${
@@ -300,13 +270,11 @@ function Sidebar({
                     </button>
                   </div>
                 </div>
-
                 <p className={`text-xs font-medium truncate ${selectedAccount === acc.id ? "text-white" : "text-gray-800"}`}>
                   {acc.email}
                 </p>
-
                 <div className="flex justify-between mt-1">
-                  <span className={`text-[10px] ${selectedAccount === acc.id ? "text-gray-400" : "text-gray-400"}`}>
+                  <span className="text-[10px] text-gray-400">
                     {acc.total_emails} email{acc.total_emails !== 1 ? "s" : ""}
                   </span>
                   {acc.last_active && (
@@ -324,14 +292,89 @@ function Sidebar({
   );
 }
 
+// ── EMAIL DRAWER ───────────────────────────────────────────────────────────
+
+function EmailDrawer({ email, onClose, onDelete }: {
+  email: EmailEntry | null;
+  onClose: () => void;
+  onDelete: (id: number) => void;
+}) {
+  if (!email) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-30 bg-black/10" onClick={onClose} />
+
+      {/* Drawer */}
+      <div className="fixed top-0 right-0 z-40 h-screen w-[480px] bg-white border-l border-gray-100 shadow-2xl flex flex-col">
+
+        {/* Drawer header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4 shrink-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                email.status === "forwarded" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+              }`}>
+                {email.status}
+              </span>
+              <FolderBadge folder={email.folder} />
+            </div>
+            <h2 className="text-sm font-semibold text-gray-900 leading-snug">
+              {email.subject || "(no subject)"}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => { onDelete(email.id); onClose(); }}
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
+            >
+              Delete
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Meta */}
+        <div className="px-6 py-3 border-b border-gray-100 bg-gray-50 shrink-0 space-y-1.5">
+          <div className="flex gap-2 text-xs">
+            <span className="text-gray-400 w-16 shrink-0">From</span>
+            <span className="text-gray-800 font-medium truncate">{email.from}</span>
+          </div>
+          <div className="flex gap-2 text-xs">
+            <span className="text-gray-400 w-16 shrink-0">Received</span>
+            <span className="text-gray-700">
+              {email.received_at ? new Date(email.received_at).toLocaleString() : "—"}
+            </span>
+          </div>
+          <div className="flex gap-2 text-xs">
+            <span className="text-gray-400 w-16 shrink-0">Forwarded</span>
+            <span className="text-gray-700">
+              {email.forwarded_at ? new Date(email.forwarded_at).toLocaleString() : "—"}
+            </span>
+          </div>
+        </div>
+
+        {/* Full body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <pre className="text-sm text-gray-700 whitespace-pre-wrap break-words font-sans leading-relaxed">
+            {email.body || "(no body)"}
+          </pre>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── EMAIL PANEL ────────────────────────────────────────────────────────────
 
 function EmailPanel({
-  emails,
-  selectedAccount,
-  accounts,
-  onDeleteEmail,
-  failedCount,
+  emails, selectedAccount, accounts, onDeleteEmail, failedCount,
 }: {
   emails: EmailEntry[];
   selectedAccount: number | null;
@@ -339,7 +382,8 @@ function EmailPanel({
   onDeleteEmail: (id: number) => void;
   failedCount: number;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch]       = useState("");
+  const [openEmail, setOpenEmail] = useState<EmailEntry | null>(null);
 
   const account = selectedAccount !== null
     ? accounts.find((a) => a.id === selectedAccount)
@@ -354,7 +398,9 @@ function EmailPanel({
     );
   });
 
-  // No account selected state
+  // Close drawer when account switches
+  useEffect(() => { setOpenEmail(null); }, [selectedAccount]);
+
   if (!selectedAccount) {
     return (
       <main className="flex-1 flex items-center justify-center bg-gray-50">
@@ -386,13 +432,10 @@ function EmailPanel({
           </div>
           <p className="text-xs text-gray-400 mt-0.5">
             {filtered.length} email{filtered.length !== 1 ? "s" : ""}
-            {failedCount > 0 && (
-              <span className="ml-2 text-red-500">{failedCount} failed</span>
-            )}
+            {failedCount > 0 && <span className="ml-2 text-red-500">{failedCount} failed</span>}
           </p>
         </div>
 
-        {/* Email search */}
         <div className="relative">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
           <input
@@ -417,40 +460,41 @@ function EmailPanel({
         ) : (
           <ul className="divide-y divide-gray-100">
             {filtered.map((e) => (
-              <li key={e.id} className="px-6 py-4 bg-white hover:bg-gray-50 transition-colors group">
+              <li
+                key={e.id}
+                onClick={() => setOpenEmail(openEmail?.id === e.id ? null : e)}
+                className={`px-6 py-4 transition-colors group cursor-pointer border-l-2 ${
+                  openEmail?.id === e.id
+                    ? "bg-gray-100 border-l-gray-900"
+                    : "bg-white hover:bg-gray-50 border-l-transparent"
+                }`}
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-
-                    {/* Subject + badges */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-gray-800 truncate">
                         {e.subject || "(no subject)"}
                       </p>
                       <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                        e.status === "forwarded"
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-red-50 text-red-500"
+                        e.status === "forwarded" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
                       }`}>
                         {e.status}
                       </span>
                       <FolderBadge folder={e.folder} />
                     </div>
 
-                    {/* From */}
                     <p className="text-xs text-gray-500 mt-0.5 truncate">
                       From: <span className="text-gray-700">{e.from}</span>
                     </p>
 
-                    {/* Body preview */}
                     <p className="text-xs text-gray-400 mt-1 line-clamp-2 whitespace-pre-line">
                       {e.body || "(no body)"}
                     </p>
                   </div>
 
-                  {/* Right side: time + delete */}
                   <div className="text-right shrink-0 flex flex-col items-end gap-1">
                     <button
-                      onClick={() => onDeleteEmail(e.id)}
+                      onClick={(ev) => { ev.stopPropagation(); onDeleteEmail(e.id); }}
                       className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 text-xs transition-all"
                       title="Delete"
                     >
@@ -469,6 +513,13 @@ function EmailPanel({
           </ul>
         )}
       </div>
+
+      {/* Slide-in drawer */}
+      <EmailDrawer
+        email={openEmail}
+        onClose={() => setOpenEmail(null)}
+        onDelete={(id) => { onDeleteEmail(id); setOpenEmail(null); }}
+      />
     </main>
   );
 }
@@ -486,18 +537,10 @@ export default function Dashboard() {
 
   async function fetchData() {
     try {
-      const emailUrl = selectedAccount !== null
-        ? `/api/emails/${selectedAccount}`
-        : `/api/emails`;
-
-      const [accRes, mailRes] = await Promise.all([
-        fetch("/api/accounts"),
-        fetch(emailUrl),
-      ]);
-
+      const emailUrl = selectedAccount !== null ? `/api/emails/${selectedAccount}` : `/api/emails`;
+      const [accRes, mailRes] = await Promise.all([fetch("/api/accounts"), fetch(emailUrl)]);
       const accData  = await accRes.json();
       const mailData = await mailRes.json();
-
       setAccounts(Array.isArray(accData)  ? accData  : []);
       setEmails(Array.isArray(mailData)   ? mailData : []);
       setLastUpdate(new Date().toLocaleTimeString());
@@ -524,9 +567,9 @@ export default function Dashboard() {
     setTogglingId(id);
     try {
       await fetch(`/api/accounts/${id}/toggle`, {
-        method:  "PATCH",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ is_active: !currentState }),
+        body: JSON.stringify({ is_active: !currentState }),
       });
       fetchData();
     } finally {
@@ -545,13 +588,9 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {showModal && (
-        <AddAccountModal
-          onClose={() => setShowModal(false)}
-          onAdded={fetchData}
-        />
+        <AddAccountModal onClose={() => setShowModal(false)} onAdded={fetchData} />
       )}
 
-      {/* Error banner */}
       {error && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600 shadow">
           {error}

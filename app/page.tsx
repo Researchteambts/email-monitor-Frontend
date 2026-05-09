@@ -1,9 +1,20 @@
 "use client";
-import { useEffect,useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Account, EmailEntry } from "./types";
 import { AddAccountModal } from "./components/AddAccountModal";
 import { Sidebar } from "./components/Sidebar";
 import { EmailPanel } from "./components/EmailPanel";
+
+export interface AppNotification {
+  id:           number;
+  accountId:    number;
+  accountEmail: string;
+  from:         string;
+  subject:      string;
+  emailId:      number | null;
+  seen:         boolean;
+  time:         Date;
+}
 
 export default function Dashboard() {
   const [accounts, setAccounts]               = useState<Account[]>([]);
@@ -13,49 +24,131 @@ export default function Dashboard() {
   const [error, setError]                     = useState<string | null>(null);
   const [showModal, setShowModal]             = useState(false);
   const [togglingId, setTogglingId]           = useState<number | null>(null);
+  const [notifications, setNotifications]     = useState<AppNotification[]>([]);
 
-// track previous unread counts across polls
-const prevUnreadRef = useRef<Record<number, number>>({});
+  const knownEmailIds = useRef<Set<number> | null>(null);
 
-async function fetchData() {
-  try {
-    const emailUrl = selectedAccount !== null ? `/api/emails/${selectedAccount}` : `/api/emails`;
-    const [accRes, mailRes] = await Promise.all([fetch("/api/accounts"), fetch(emailUrl)]);
-    const accData  = await accRes.json();
-    const mailData = await mailRes.json();
+  // ── 1. Request notification permission on first load ──────────────────
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
-    const newAccounts: Account[] = Array.isArray(accData) ? accData : [];
+  // ── Load notifications from backend ───────────────────────────────────
+  async function fetchNotifications() {
+    try {
+      const res  = await fetch("/api/notifications");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setNotifications(
+          data.map((n: any) => ({
+            id:           n.id,
+            accountId:    n.account_id,
+            accountEmail: n.account_email,
+            from:         n.from,
+            subject:      n.subject,
+            emailId:      n.email_id,
+            seen:         n.is_seen,
+            time:         new Date(n.created_at),
+          }))
+        );
+      }
+    } catch {
+      // non-critical — silently ignore
+    }
+  }
 
-    // ── check for new unread emails ──
-    newAccounts.forEach((acc) => {
-      const prev = prevUnreadRef.current[acc.id] ?? acc.unread_count;
-      if (acc.unread_count > prev) {
-        const diff = acc.unread_count - prev;
-        if (Notification.permission === "granted") {
-          new Notification(`📬 ${acc.email}`, {
-            body: `${diff} new unread email${diff > 1 ? "s" : ""}`,
-          });
+  // ── Main data fetch + notification diffing ────────────────────────────
+  async function fetchData() {
+    try {
+      const emailUrl = selectedAccount !== null
+        ? `/api/emails/${selectedAccount}`
+        : `/api/emails`;
+
+      const [accRes, mailRes, allMailRes] = await Promise.all([
+        fetch("/api/accounts"),
+        fetch(emailUrl),
+        fetch("/api/emails"),
+      ]);
+
+      const accData:     Account[]    = await accRes.json();
+      const mailData:    EmailEntry[] = await mailRes.json();
+      const allMailData: EmailEntry[] = await allMailRes.json();
+
+      const freshAccounts = Array.isArray(accData) ? accData : [];
+      setAccounts(freshAccounts);
+      setEmails(Array.isArray(mailData) ? mailData : []);
+      setLastUpdate(new Date().toLocaleTimeString());
+      setError(null);
+
+      // ── Notification diffing ──────────────────────────────────────────
+      if (knownEmailIds.current === null) {
+        // First load — seed known IDs, load persisted notifications
+        knownEmailIds.current = new Set(allMailData.map((e) => e.id));
+        await fetchNotifications();
+      } else {
+        const newEmails = allMailData.filter((e) => !knownEmailIds.current!.has(e.id));
+
+        if (newEmails.length > 0) {
+          // ── 2. Fire system notifications ─────────────────────────────
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            newEmails.forEach((e) => {
+              const acc  = freshAccounts.find((a) => a.id === e.account_id);
+              const notif = new Notification(`📬 ${acc?.email ?? "New email"}`, {
+                body: `From: ${e.from ?? "Unknown"}\n${e.subject || "(no subject)"}`,
+                icon: "/favicon.ico",
+                tag:  `email-${e.id}`,  // prevents duplicate popups
+              });
+
+              notif.onclick = () => {
+                window.focus();
+                setSelectedAccount(e.account_id);
+              };
+            });
+          }
+
+          // Save to backend notifications
+          await Promise.all(
+            newEmails.map((e) => {
+              const acc = freshAccounts.find((a) => a.id === e.account_id);
+              return fetch("/api/notifications", {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  account_id:    e.account_id,
+                  account_email: acc?.email ?? `Account #${e.account_id}`,
+                  from_address:  e.from ?? "Unknown sender",
+                  subject:       e.subject || "(no subject)",
+                  email_id:      e.id,
+                }),
+              });
+            })
+          );
+
+          newEmails.forEach((e) => knownEmailIds.current!.add(e.id));
+          await fetchNotifications();
         }
       }
-      prevUnreadRef.current[acc.id] = acc.unread_count;
-    });
-
-    setAccounts(newAccounts);
-    setEmails(Array.isArray(mailData) ? mailData : []);
-    setLastUpdate(new Date().toLocaleTimeString());
-    setError(null);
-  } catch {
-    setError("Cannot reach backend — is it running?");
+    } catch {
+      setError("Cannot reach backend — is it running?");
+    }
   }
-}
 
-// request notification permission once on mount
-useEffect(() => {
-  if (Notification.permission === "default") {
-    Notification.requestPermission();
+  // ── Notification actions ──────────────────────────────────────────────
+  async function markNotificationSeen(id: number) {
+    await fetch(`/api/notifications/${id}/seen`, { method: "PATCH" });
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, seen: true } : n))
+    );
   }
-}, []);
 
+  async function clearAllNotifications() {
+    await fetch("/api/notifications", { method: "DELETE" });
+    setNotifications([]);
+  }
+
+  // ── Email / account actions ───────────────────────────────────────────
   async function deleteEmail(id: number) {
     if (!confirm("Delete this email?")) return;
     await fetch(`/api/emails/${id}`, { method: "DELETE" });
@@ -64,7 +157,7 @@ useEffect(() => {
 
   async function markEmailRead(id: number) {
     await fetch(`/api/emails/${id}/read`, {
-      method: "PATCH",
+      method:  "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_read: true }),
     });
@@ -82,7 +175,7 @@ useEffect(() => {
     setTogglingId(id);
     try {
       await fetch(`/api/accounts/${id}/toggle`, {
-        method: "PATCH",
+        method:  "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: !currentState }),
       });
@@ -119,6 +212,10 @@ useEffect(() => {
         togglingId={togglingId}
         onAddClick={() => setShowModal(true)}
         lastUpdate={lastUpdate}
+        notifications={notifications}
+        onNotificationSeen={markNotificationSeen}
+        onClearAll={clearAllNotifications}
+        onNotificationClick={(accountId) => setSelectedAccount(accountId)}
       />
 
       <EmailPanel

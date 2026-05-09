@@ -1,20 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
 
-// ── INTERFACES ────────────────────────────────────────────────────────────
+// ── INTERFACES ─────────────────────────────────────────────────────────────
 
 interface Account {
-  id: number;                  // ✅ added — needed for delete/toggle
+  id: number;
   email: string;
   provider: string;
-  is_active: boolean;          // ✅ added — needed for pause/resume UI
-  total_emails: number;        // ✅ fixed — was total_forwarded
+  is_active: boolean;
+  total_emails: number;
   last_active: string | null;
 }
 
 interface EmailEntry {
   id: number;
-  account_id: number;          // ✅ fixed — was account (string)
+  account_id: number;
   uid: string;
   from: string;
   subject: string;
@@ -25,15 +25,15 @@ interface EmailEntry {
   folder: string;
 }
 
-// ── BADGE ─────────────────────────────────────────────────────────────────
+// ── HELPERS ────────────────────────────────────────────────────────────────
 
-function Badge({ provider }: { provider: string }) {
+function ProviderBadge({ provider }: { provider: string }) {
   return (
     <span
-      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+      className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${
         provider === "gmail"
-          ? "bg-red-100 text-red-700"
-          : "bg-blue-100 text-blue-700"
+          ? "bg-red-100 text-red-600"
+          : "bg-blue-100 text-blue-600"
       }`}
     >
       {provider}
@@ -42,31 +42,33 @@ function Badge({ provider }: { provider: string }) {
 }
 
 function StatusDot({ lastActive, isActive }: { lastActive: string | null; isActive: boolean }) {
-  if (!isActive) {
-    return (
-      <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" title="Paused" />
-    );
-  }
-  const recent =
-    lastActive && Date.now() - new Date(lastActive).getTime() < 10 * 60 * 1000;
+  if (!isActive)
+    return <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block" title="Paused" />;
   return (
     <span
-      className={`inline-block w-2 h-2 rounded-full ${
-        recent ? "bg-green-500 animate-pulse" : "bg-gray-300"
+      className={`w-1.5 h-1.5 rounded-full inline-block ${
+        lastActive ? "bg-emerald-500" : "bg-gray-300"
       }`}
     />
   );
 }
 
-// ── ADD ACCOUNT MODAL ─────────────────────────────────────────────────────
+function FolderBadge({ folder }: { folder: string }) {
+  const isSpam = folder?.toLowerCase().includes("spam") || folder?.toLowerCase().includes("junk");
+  return (
+    <span
+      className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+        isSpam ? "bg-orange-50 text-orange-500" : "bg-purple-50 text-purple-500"
+      }`}
+    >
+      {folder || "inbox"}
+    </span>
+  );
+}
 
-function AddAccountModal({
-  onClose,
-  onAdded,
-}: {
-  onClose: () => void;
-  onAdded: () => void;
-}) {
+// ── ADD ACCOUNT MODAL ──────────────────────────────────────────────────────
+
+function AddAccountModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [provider, setProvider] = useState("gmail");
@@ -74,17 +76,14 @@ function AddAccountModal({
   const [error, setError]       = useState<string | null>(null);
 
   async function handleSubmit() {
-    if (!email || !password) {
-      setError("Email and password are required.");
-      return;
-    }
+    if (!email || !password) { setError("Email and password are required."); return; }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("api/accounts", {
-        method:  "POST",
+      const res  = await fetch("api/accounts", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email, password, provider }),
+        body: JSON.stringify({ email, password, provider }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to add account");
@@ -96,27 +95,20 @@ function AddAccountModal({
       setLoading(false);
     }
   }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-gray-800">Add Client Account</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-          >
-            ✕
-          </button>
+          <h2 className="text-base font-semibold text-gray-800">Add Client Account</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
 
         {error && (
-          <div className="mb-4 px-4 py-2 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
-            {error}
-          </div>
+          <div className="mb-4 px-3 py-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600">{error}</div>
         )}
 
         <div className="space-y-4">
-          {/* Provider */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Provider</label>
             <div className="flex gap-2">
@@ -124,10 +116,8 @@ function AddAccountModal({
                 <button
                   key={p}
                   onClick={() => setProvider(p)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    provider === p
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
+                    provider === p ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
                   }`}
                 >
                   {p.charAt(0).toUpperCase() + p.slice(1)}
@@ -136,11 +126,8 @@ function AddAccountModal({
             </div>
           </div>
 
-          {/* Email */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Client Email Address
-            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Client Email Address</label>
             <input
               type="email"
               value={email}
@@ -150,13 +137,10 @@ function AddAccountModal({
             />
           </div>
 
-          {/* App Password */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               App Password
-              <span className="ml-1 text-gray-400 font-normal">
-                (use app-specific password, not their real password)
-              </span>
+              <span className="ml-1 text-gray-400 font-normal">(not their real password)</span>
             </label>
             <input
               type="password"
@@ -167,17 +151,13 @@ function AddAccountModal({
             />
           </div>
 
-          {/* Helper note */}
           <div className="px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
-            <strong>Gmail:</strong> Go to Google Account → Security → App Passwords to generate one.
+            <strong>Gmail:</strong> Google Account → Security → App Passwords
           </div>
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
+          <button onClick={onClose} className="flex-1 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             Cancel
           </button>
           <button
@@ -193,120 +173,312 @@ function AddAccountModal({
   );
 }
 
-// ── EMAIL FEED ────────────────────────────────────────────────────────────
+// ── SIDEBAR ────────────────────────────────────────────────────────────────
 
-function EmailFeed({
-  emails,
-  selectedAccount,
+function Sidebar({
   accounts,
-  onDeleteEmail, 
+  selectedAccount,
+  onSelect,
+  onToggle,
+  onDelete,
+  togglingId,
+  onAddClick,
+  lastUpdate,
 }: {
-  emails: EmailEntry[];
-  selectedAccount: number | null;        
   accounts: Account[];
-  onDeleteEmail: (id: number) => void;
+  selectedAccount: number | null;
+  onSelect: (id: number) => void;
+  onToggle: (id: number, current: boolean) => void;
+  onDelete: (id: number, email: string) => void;
+  togglingId: number | null;
+  onAddClick: () => void;
+  lastUpdate: string | null;
 }) {
-  // ✅ filter by account_id not account string
-  const filtered = selectedAccount !== null
-    ? emails.filter((e) => e.account_id === selectedAccount)
-    : emails;
+  const [search, setSearch] = useState("");
 
-  // helper to get email address from account_id
-  function accountEmail(account_id: number) {
-    return accounts.find((a) => a.id === account_id)?.email ?? String(account_id);
-  }
+  const filtered = accounts.filter((a) =>
+    a.email.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const selectedEmail = selectedAccount !== null
-    ? accounts.find((a) => a.id === selectedAccount)?.email
-    : null;
+  const activeCount = accounts.filter((a) => a.is_active).length;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
-        <h2 className="text-sm font-semibold text-gray-600">
-          {selectedEmail ? `Emails — ${selectedEmail}` : "All Received Emails"}
-        </h2>
-        <span className="text-xs text-gray-400">{filtered.length} total</span>
+    <aside className="w-72 shrink-0 bg-white border-r border-gray-100 flex flex-col h-screen sticky top-0">
+
+      {/* Header */}
+      <div className="px-4 pt-5 pb-3 border-b border-gray-100">
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-base font-semibold text-gray-900">Email Monitor</h1>
+          <button
+            onClick={onAddClick}
+            className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-900 text-white text-lg leading-none hover:bg-gray-700 transition-colors"
+            title="Add account"
+          >
+            +
+          </button>
+        </div>
+        <p className="text-[11px] text-gray-400">
+          {activeCount} active · updated {lastUpdate ?? "—"}
+        </p>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="p-10 text-center text-gray-400 text-sm">
-          No emails received yet
+      {/* Stats */}
+      <div className="px-4 py-3 flex gap-2 border-b border-gray-100">
+        {[
+          { label: "Total",  value: accounts.length },
+          { label: "Active", value: activeCount },
+          { label: "Paused", value: accounts.length - activeCount },
+        ].map((s) => (
+          <div key={s.label} className="flex-1 bg-gray-50 rounded-lg px-2 py-1.5 text-center">
+            <div className="text-sm font-semibold text-gray-800">{s.value}</div>
+            <div className="text-[10px] text-gray-400">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="px-4 py-3 border-b border-gray-100">
+        <div className="relative">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search accounts..."
+            className="w-full pl-7 pr-3 py-1.5 text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-300"
+          />
         </div>
-      ) : (
-        <ul className="divide-y divide-gray-100">
-          {filtered.map((e) => (
-            <li key={e.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-800 truncate">
-                      {e.subject || "(no subject)"}
-                    </p>
-                    {/* ✅ status badge */}
-                    <span
-                      className={`shrink-0 text-xs px-1.5 py-0.5 rounded font-medium ${
-                        e.status === "forwarded"
-                          ? "bg-green-50 text-green-600"
-                          : "bg-red-50 text-red-500"
+      </div>
+
+      {/* Account list */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="p-6 text-center text-xs text-gray-400">
+            {accounts.length === 0 ? "No accounts yet" : "No results"}
+          </div>
+        ) : (
+          <ul>
+            {filtered.map((acc) => (
+              <li
+                key={acc.id}
+                onClick={() => onSelect(acc.id)}
+                className={`group px-4 py-3 cursor-pointer border-b border-gray-50 transition-colors ${
+                  selectedAccount === acc.id
+                    ? "bg-gray-900"
+                    : "hover:bg-gray-50"
+                } ${!acc.is_active ? "opacity-50" : ""}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <ProviderBadge provider={acc.provider} />
+                  <div className="flex items-center gap-1.5">
+                    <StatusDot lastActive={acc.last_active} isActive={acc.is_active} />
+                    <span className={`text-[10px] ${selectedAccount === acc.id ? "text-gray-400" : "text-gray-400"}`}>
+                      {!acc.is_active ? "paused" : acc.last_active ? "active" : "waiting"}
+                    </span>
+
+                    {/* Pause / Resume */}
+                    <button
+                      onClick={(ev) => { ev.stopPropagation(); onToggle(acc.id, acc.is_active); }}
+                      disabled={togglingId === acc.id}
+                      className={`opacity-0 group-hover:opacity-100 text-[11px] transition-all disabled:opacity-30 ${
+                        selectedAccount === acc.id ? "text-gray-400 hover:text-yellow-300" : "text-gray-300 hover:text-yellow-500"
                       }`}
+                      title={acc.is_active ? "Pause" : "Resume"}
                     >
-                      {e.status}
-                    </span>
-                    <span className="shrink-0 text-xs px-1.5 py-0.5 rounded font-medium bg-purple-50 text-purple-600">
-                      {e.folder}
-                    </span>
+                      {acc.is_active ? "⏸" : "▶"}
+                    </button>
+
+                    {/* Delete */}
+                    <button
+                      onClick={(ev) => { ev.stopPropagation(); onDelete(acc.id, acc.email); }}
+                      className={`opacity-0 group-hover:opacity-100 text-[11px] transition-all ${
+                        selectedAccount === acc.id ? "text-gray-400 hover:text-red-400" : "text-gray-300 hover:text-red-500"
+                      }`}
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
                   </div>
+                </div>
 
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">
-                    From: <span className="text-gray-700">{e.from}</span>
-                  </p>
+                <p className={`text-xs font-medium truncate ${selectedAccount === acc.id ? "text-white" : "text-gray-800"}`}>
+                  {acc.email}
+                </p>
 
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2 whitespace-pre-line">
-                    {e.body || "(no body)"}
-                  </p>
-
-                  {/* ✅ show account label using account_id → email lookup */}
-                  {selectedAccount === null && (
-                    <div className="mt-1.5 inline-flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-md px-2 py-0.5">
-                      <span className="text-xs text-blue-400">received by</span>
-                      <span className="text-xs font-medium text-blue-700">
-                        {accountEmail(e.account_id)}
-                      </span>
-                    </div>
+                <div className="flex justify-between mt-1">
+                  <span className={`text-[10px] ${selectedAccount === acc.id ? "text-gray-400" : "text-gray-400"}`}>
+                    {acc.total_emails} email{acc.total_emails !== 1 ? "s" : ""}
+                  </span>
+                  {acc.last_active && (
+                    <span className={`text-[10px] ${selectedAccount === acc.id ? "text-gray-500" : "text-gray-300"}`}>
+                      {new Date(acc.last_active).toLocaleTimeString()}
+                    </span>
                   )}
                 </div>
-
-                <div className="text-right shrink-0">
-                  <button
-                    onClick={() => onDeleteEmail(e.id)}
-                    className="text-gray-200 hover:text-red-400 text-xs transition-colors mb-1"
-                    title="Delete email"
-                  >
-                    ✕
-                  </button>
-                  <span className="text-xs text-gray-400">
-                    {e.received_at ? new Date(e.received_at).toLocaleTimeString() : "—"}
-                  </span>
-                  <p className="text-xs text-gray-300 mt-0.5">
-                    {e.received_at ? new Date(e.received_at).toLocaleDateString() : ""}
-                  </p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </aside>
   );
 }
 
-// ── DASHBOARD ─────────────────────────────────────────────────────────────
+// ── EMAIL PANEL ────────────────────────────────────────────────────────────
+
+function EmailPanel({
+  emails,
+  selectedAccount,
+  accounts,
+  onDeleteEmail,
+  failedCount,
+}: {
+  emails: EmailEntry[];
+  selectedAccount: number | null;
+  accounts: Account[];
+  onDeleteEmail: (id: number) => void;
+  failedCount: number;
+}) {
+  const [search, setSearch] = useState("");
+
+  const account = selectedAccount !== null
+    ? accounts.find((a) => a.id === selectedAccount)
+    : null;
+
+  const filtered = emails.filter((e) => {
+    if (!search) return true;
+    return (
+      e.subject?.toLowerCase().includes(search.toLowerCase()) ||
+      e.from?.toLowerCase().includes(search.toLowerCase()) ||
+      e.body?.toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
+  // No account selected state
+  if (!selectedAccount) {
+    return (
+      <main className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="text-4xl mb-3">📬</div>
+          <p className="text-sm font-medium text-gray-500">Select an account to view emails</p>
+          <p className="text-xs text-gray-400 mt-1">Pick one from the sidebar</p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex-1 flex flex-col min-h-screen bg-gray-50 overflow-hidden">
+
+      {/* Panel header */}
+      <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+        <div>
+          <div className="flex items-center gap-2">
+            {account && <ProviderBadge provider={account.provider} />}
+            <h2 className="text-sm font-semibold text-gray-800">{account?.email}</h2>
+            {account && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                account.is_active ? "bg-emerald-50 text-emerald-600" : "bg-yellow-50 text-yellow-600"
+              }`}>
+                {account.is_active ? "active" : "paused"}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {filtered.length} email{filtered.length !== 1 ? "s" : ""}
+            {failedCount > 0 && (
+              <span className="ml-2 text-red-500">{failedCount} failed</span>
+            )}
+          </p>
+        </div>
+
+        {/* Email search */}
+        <div className="relative">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search emails..."
+            className="pl-7 pr-3 py-1.5 text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-300 w-52"
+          />
+        </div>
+      </div>
+
+      {/* Email list */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="text-3xl mb-2">📭</div>
+              <p className="text-sm text-gray-400">No emails found</p>
+            </div>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {filtered.map((e) => (
+              <li key={e.id} className="px-6 py-4 bg-white hover:bg-gray-50 transition-colors group">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+
+                    {/* Subject + badges */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        {e.subject || "(no subject)"}
+                      </p>
+                      <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                        e.status === "forwarded"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-red-50 text-red-500"
+                      }`}>
+                        {e.status}
+                      </span>
+                      <FolderBadge folder={e.folder} />
+                    </div>
+
+                    {/* From */}
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                      From: <span className="text-gray-700">{e.from}</span>
+                    </p>
+
+                    {/* Body preview */}
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2 whitespace-pre-line">
+                      {e.body || "(no body)"}
+                    </p>
+                  </div>
+
+                  {/* Right side: time + delete */}
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                    <button
+                      onClick={() => onDeleteEmail(e.id)}
+                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 text-xs transition-all"
+                      title="Delete"
+                    >
+                      ✕
+                    </button>
+                    <span className="text-xs text-gray-400">
+                      {e.received_at ? new Date(e.received_at).toLocaleTimeString() : "—"}
+                    </span>
+                    <p className="text-[10px] text-gray-300">
+                      {e.received_at ? new Date(e.received_at).toLocaleDateString() : ""}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [accounts, setAccounts]               = useState<Account[]>([]);
   const [emails, setEmails]                   = useState<EmailEntry[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<number | null>(null); // ✅ number not string
+  const [selectedAccount, setSelectedAccount] = useState<number | null>(null);
   const [lastUpdate, setLastUpdate]           = useState<string | null>(null);
   const [error, setError]                     = useState<string | null>(null);
   const [showModal, setShowModal]             = useState(false);
@@ -314,7 +486,6 @@ export default function Dashboard() {
 
   async function fetchData() {
     try {
-      // ✅ emails filtered by account_id via path param
       const emailUrl = selectedAccount !== null
         ? `/api/emails/${selectedAccount}`
         : `/api/emails`;
@@ -332,21 +503,16 @@ export default function Dashboard() {
       setLastUpdate(new Date().toLocaleTimeString());
       setError(null);
     } catch {
-      setError("Cannot reach backend — is it running on port 8001?");
+      setError("Cannot reach backend — is it running?");
     }
   }
+
   async function deleteEmail(id: number) {
     if (!confirm("Delete this email?")) return;
     await fetch(`/api/emails/${id}`, { method: "DELETE" });
-    fetchData(); 
-  }
-  useEffect(() => {
     fetchData();
-    const id = setInterval(fetchData, 30_000);
-    return () => clearInterval(id);
-  }, [selectedAccount]);
+  }
 
-  // ✅ delete uses account.id not email string
   async function deleteAccount(id: number, email: string) {
     if (!confirm(`Remove ${email} from monitoring?`)) return;
     await fetch(`/api/accounts/${id}`, { method: "DELETE" });
@@ -354,7 +520,6 @@ export default function Dashboard() {
     fetchData();
   }
 
-  // ✅ toggle pause/resume
   async function toggleAccount(id: number, currentState: boolean) {
     setTogglingId(id);
     try {
@@ -369,12 +534,16 @@ export default function Dashboard() {
     }
   }
 
-  const totalEmails   = emails.length;
-  const activeCount   = accounts.filter((a) => a.is_active).length;
-  const failedCount   = emails.filter((e) => e.status === "forward_failed").length;
+  useEffect(() => {
+    fetchData();
+    const id = setInterval(fetchData, 30_000);
+    return () => clearInterval(id);
+  }, [selectedAccount]);
+
+  const failedCount = emails.filter((e) => e.status === "forward_failed").length;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       {showModal && (
         <AddAccountModal
           onClose={() => setShowModal(false)}
@@ -382,133 +551,31 @@ export default function Dashboard() {
         />
       )}
 
-      <div className="max-w-5xl mx-auto">
-
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Email Monitor</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
-              Live dashboard · updates every 30s
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-gray-400">
-              Last updated: {lastUpdate ?? "—"}
-            </span>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-4 py-2 text-sm text-white bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              + Add Account
-            </button>
-          </div>
+      {/* Error banner */}
+      {error && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600 shadow">
+          {error}
         </div>
+      )}
 
-        {/* Error */}
-        {error && (
-          <div className="mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
-            {error}
-          </div>
-        )}
+      <Sidebar
+        accounts={accounts}
+        selectedAccount={selectedAccount}
+        onSelect={(id) => setSelectedAccount(selectedAccount === id ? null : id)}
+        onToggle={toggleAccount}
+        onDelete={deleteAccount}
+        togglingId={togglingId}
+        onAddClick={() => setShowModal(true)}
+        lastUpdate={lastUpdate}
+      />
 
-        {/* Stats bar */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          {[
-            { label: "Accounts",      value: accounts.length },
-            { label: "Active",        value: activeCount },
-            { label: "Failed Fwds",   value: failedCount },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-3 flex items-center justify-between">
-              <span className="text-sm text-gray-500">{s.label}</span>
-              <span className={`text-lg font-semibold ${s.label === "Failed Fwds" && s.value > 0 ? "text-red-500" : "text-gray-800"}`}>
-                {s.value}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Account cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {accounts.length === 0 ? (
-            <p className="text-sm text-gray-400 col-span-3">
-              No accounts yet — click <strong>+ Add Account</strong> to start.
-            </p>
-          ) : (
-            accounts.map((acc) => (
-              <div
-                key={acc.id}
-                onClick={() =>
-                  setSelectedAccount(selectedAccount === acc.id ? null : acc.id)
-                }
-                className={`bg-white rounded-xl p-4 border shadow-sm cursor-pointer transition-all ${
-                  selectedAccount === acc.id
-                    ? "border-gray-900 ring-1 ring-gray-900"
-                    : "border-gray-100 hover:border-gray-300"
-                } ${!acc.is_active ? "opacity-60" : ""}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <Badge provider={acc.provider} />
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                      <StatusDot lastActive={acc.last_active} isActive={acc.is_active} />
-                      {!acc.is_active ? "paused" : acc.last_active ? "active" : "waiting"}
-                    </div>
-
-                    {/* ✅ Toggle pause/resume button */}
-                    <button
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        toggleAccount(acc.id, acc.is_active);
-                      }}
-                      disabled={togglingId === acc.id}
-                      className="text-gray-300 hover:text-yellow-500 text-xs transition-colors disabled:opacity-40"
-                      title={acc.is_active ? "Pause monitoring" : "Resume monitoring"}
-                    >
-                      {acc.is_active ? "⏸" : "▶"}
-                    </button>
-
-                    {/* ✅ Delete uses acc.id */}
-                    <button
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        deleteAccount(acc.id, acc.email);
-                      }}
-                      className="text-gray-300 hover:text-red-500 text-xs transition-colors"
-                      title="Remove account"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                <p className="text-sm font-semibold text-gray-800 truncate">
-                  {acc.email}
-                </p>
-
-                <div className="flex justify-between mt-2">
-                  <span className="text-xs text-gray-400">
-                    {acc.total_emails} email{acc.total_emails !== 1 ? "s" : ""} received
-                  </span>
-                    {acc.last_active && (
-                      <span className="text-xs text-gray-300" title="Last forwarded at">
-                        {new Date(acc.last_active).toLocaleTimeString()}
-                      </span>
-                    )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Email feed */}
-        <EmailFeed
-          emails={emails}
-          selectedAccount={selectedAccount}
-          accounts={accounts}
-          onDeleteEmail={deleteEmail} 
-        />
-      </div>
+      <EmailPanel
+        emails={emails}
+        selectedAccount={selectedAccount}
+        accounts={accounts}
+        onDeleteEmail={deleteEmail}
+        failedCount={failedCount}
+      />
     </div>
   );
 }

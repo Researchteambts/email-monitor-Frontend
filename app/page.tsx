@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect,useRef, useState } from "react";
 import { Account, EmailEntry } from "./types";
 import { AddAccountModal } from "./components/AddAccountModal";
 import { Sidebar } from "./components/Sidebar";
@@ -14,20 +14,47 @@ export default function Dashboard() {
   const [showModal, setShowModal]             = useState(false);
   const [togglingId, setTogglingId]           = useState<number | null>(null);
 
-  async function fetchData() {
-    try {
-      const emailUrl = selectedAccount !== null ? `/api/emails/${selectedAccount}` : `/api/emails`;
-      const [accRes, mailRes] = await Promise.all([fetch("/api/accounts"), fetch(emailUrl)]);
-      const accData  = await accRes.json();
-      const mailData = await mailRes.json();
-      setAccounts(Array.isArray(accData)  ? accData  : []);
-      setEmails(Array.isArray(mailData)   ? mailData : []);
-      setLastUpdate(new Date().toLocaleTimeString());
-      setError(null);
-    } catch {
-      setError("Cannot reach backend — is it running?");
-    }
+// track previous unread counts across polls
+const prevUnreadRef = useRef<Record<number, number>>({});
+
+async function fetchData() {
+  try {
+    const emailUrl = selectedAccount !== null ? `/api/emails/${selectedAccount}` : `/api/emails`;
+    const [accRes, mailRes] = await Promise.all([fetch("/api/accounts"), fetch(emailUrl)]);
+    const accData  = await accRes.json();
+    const mailData = await mailRes.json();
+
+    const newAccounts: Account[] = Array.isArray(accData) ? accData : [];
+
+    // ── check for new unread emails ──
+    newAccounts.forEach((acc) => {
+      const prev = prevUnreadRef.current[acc.id] ?? acc.unread_count;
+      if (acc.unread_count > prev) {
+        const diff = acc.unread_count - prev;
+        if (Notification.permission === "granted") {
+          new Notification(`📬 ${acc.email}`, {
+            body: `${diff} new unread email${diff > 1 ? "s" : ""}`,
+          });
+        }
+      }
+      prevUnreadRef.current[acc.id] = acc.unread_count;
+    });
+
+    setAccounts(newAccounts);
+    setEmails(Array.isArray(mailData) ? mailData : []);
+    setLastUpdate(new Date().toLocaleTimeString());
+    setError(null);
+  } catch {
+    setError("Cannot reach backend — is it running?");
   }
+}
+
+// request notification permission once on mount
+useEffect(() => {
+  if (Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}, []);
 
   async function deleteEmail(id: number) {
     if (!confirm("Delete this email?")) return;
